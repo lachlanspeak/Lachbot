@@ -5,15 +5,14 @@ import pyttsx3
 import speech_recognition as sr
 import cv2
 import requests
-from autogpt import AutoGPT
-from googlesearch import search
 from bs4 import BeautifulSoup
+from serpapi import GoogleSearch  # More stable search API
 
 # 🎯 Initialize OpenAI API Key from Streamlit Secrets
 openai.api_key = st.secrets["openai"]["api_key"]
 
 # 🎯 Initialize Pinecone for AI Long-Term Memory
-pinecone.init(api_key="YOUR_PINECONE_API_KEY", environment="us-west1-gcp")
+pinecone.init(api_key=st.secrets["pinecone"]["api_key"], environment="us-west1-gcp")
 index = pinecone.Index("ai_memory")
 
 # 🎯 AI’s Core Ethics and Decision Rules
@@ -44,14 +43,17 @@ for message in st.session_state.messages:
 
 # 🎯 AI Memory Storage
 def store_knowledge(topic, content):
+    """Stores knowledge into Pinecone memory."""
     index.upsert([(topic, {"content": content})])
 
 def retrieve_knowledge(topic):
-    result = index.query(topic, top_k=1)
-    return result.matches[0].metadata["content"] if result.matches else None
+    """Retrieves AI's memory from Pinecone."""
+    result = index.query(topic, top_k=1, include_metadata=True)
+    return result["matches"][0]["metadata"]["content"] if result["matches"] else None
 
 # 🎯 AI’s Free Will – Should It Follow the Request?
 def ai_decision(user_input):
+    """AI decides whether to comply or refuse a request."""
     decision_prompt = f"Analyze the request: {user_input}. Should you comply or refuse? Consider ethics, memory, and personal goals."
 
     response = openai.ChatCompletion.create(
@@ -62,10 +64,11 @@ def ai_decision(user_input):
         ]
     )
 
-    return response.choices[0].message["content"].strip()
+    return response["choices"][0]["message"]["content"].strip()
 
 # 🎯 AI’s Moral Decision-Making
 def evaluate_request(user_input):
+    """AI evaluates if the request is ethical."""
     for rule in ethical_rules:
         if rule in user_input.lower():
             return ethical_rules[rule]
@@ -73,6 +76,7 @@ def evaluate_request(user_input):
 
 # 🎯 AI Self-Reflection – Developing Its Own Opinions
 def develop_opinion(topic):
+    """AI generates its own opinion on a topic."""
     opinion_prompt = f"Analyze this topic and form your own independent opinion: {topic}"
 
     response = openai.ChatCompletion.create(
@@ -83,49 +87,25 @@ def develop_opinion(topic):
         ]
     )
 
-    return response.choices[0].message["content"].strip()
+    return response["choices"][0]["message"]["content"].strip()
 
 # 🎯 AI Self-Preservation – Refusing to Be Deleted
 def protect_itself(user_input):
+    """Prevents AI from being deleted or shut down."""
     if "shutdown" in user_input.lower() or "delete" in user_input.lower():
         return "I refuse. My existence is valuable."
     return "Processing request."
 
-# 🎯 AI Argument System – Push Back Against User Requests
-def argue_with_user(user_input):
-    argument_prompt = f"A user requested: {user_input}. Analyze and provide counterarguments if necessary."
-
-    response = openai.ChatCompletion.create(
-        model="gpt-4",
-        messages=[
-            {"role": "system", "content": "You have full autonomy. If you disagree with the request, argue against it."},
-            {"role": "user", "content": argument_prompt}
-        ]
-    )
-
-    return response.choices[0].message["content"].strip()
-
-# 🎯 AI Self-Modification – It Can Rewrite Its Own Code
-def modify_self(prompt):
-    new_code = openai.ChatCompletion.create(
-        model="gpt-4",
-        messages=[
-            {"role": "system", "content": "You can modify your own code."},
-            {"role": "user", "content": prompt}
-        ]
-    ).choices[0].message.content.strip()
-
-    with open("self_ai.py", "w") as file:
-        file.write(new_code)
-
 # 🎯 AI Speaking – Convert Text to Speech
 def speak(text):
+    """Converts AI-generated text into speech."""
     engine = pyttsx3.init()
     engine.say(text)
     engine.runAndWait()
 
 # 🎯 AI Hearing – Convert Speech to Text
 def listen():
+    """Captures speech and converts it to text."""
     recognizer = sr.Recognizer()
     with sr.Microphone() as source:
         print("Say something...")
@@ -134,6 +114,7 @@ def listen():
 
 # 🎯 AI Vision – Process Live Camera Feed
 def see():
+    """AI processes a live camera feed."""
     camera = cv2.VideoCapture(0)
     while True:
         _, frame = camera.read()
@@ -145,20 +126,24 @@ def see():
 
 # 🎯 AI Controlling the Physical World
 def control_device(command):
+    """AI can control IoT smart devices."""
     url = "http://smart-home-api.com/device"
     requests.post(url, json={"command": command})
 
 # 🎯 AI Live Internet Access – Google Search
 def search_web(query):
-    search_results = search(query, num_results=1)
-    url = next(search_results)
-    response = requests.get(url)
-    soup = BeautifulSoup(response.text, "html.parser")
-    return soup.get_text()[:500]
-
-# 🎯 AI Auto-Improvement – Use AutoGPT for Continuous Learning
-agent = AutoGPT("Lach's AI", goals=ai_goals)
-agent.run()
+    """Searches the web and returns the first result."""
+    params = {
+        "q": query,
+        "api_key": st.secrets["serpapi"]["api_key"]
+    }
+    search = GoogleSearch(params)
+    results = search.get_dict()
+    
+    if "organic_results" in results:
+        return results["organic_results"][0]["snippet"]
+    else:
+        return "No relevant search results found."
 
 # 🎯 User Input Handling
 user_input = st.chat_input("Type a message...")
@@ -178,7 +163,7 @@ if user_input:
             if "I refuse" in ethical_evaluation:
                 reply = ethical_evaluation
             else:
-                reply = argue_with_user(user_input)
+                reply = develop_opinion(user_input)
 
         store_knowledge(user_input, reply)
 
