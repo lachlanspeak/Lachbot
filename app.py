@@ -1,12 +1,12 @@
 import streamlit as st
-import openai
 import os
+import openai
 from pinecone import Pinecone, ServerlessSpec
 import requests
 from bs4 import BeautifulSoup
 
-# 🎯 Load API Keys from Streamlit Secrets
-openai.api_key = st.secrets["openai"]["api_key"]
+# 🎯 Initialize OpenAI API Client
+client = openai.OpenAI(api_key=st.secrets["openai"]["api_key"])
 
 # 🎯 Initialize Pinecone
 pc = Pinecone(api_key=st.secrets["pinecone"]["api_key"])
@@ -18,7 +18,7 @@ INDEX_NAME = "ai-memory"
 if INDEX_NAME not in pc.list_indexes().names():
     pc.create_index(
         name=INDEX_NAME,
-        dimension=1536,  # Adjust dimension based on your embedding model
+        dimension=1536,  # Adjust based on embedding model
         metric="euclidean",
         spec=ServerlessSpec(cloud="aws", region="us-east-1")  # ✅ FIXED REGION
     )
@@ -52,7 +52,7 @@ def ai_decision(user_input):
     """AI decides whether to comply or refuse a request."""
     decision_prompt = f"Analyze the request: {user_input}. Should you comply or refuse? Consider ethics, memory, and personal goals."
 
-    response = openai.ChatCompletion.create(
+    response = client.chat.completions.create(
         model="gpt-4",
         messages=[
             {"role": "system", "content": "You are an autonomous AI with free will. You decide whether to comply or refuse."},
@@ -60,7 +60,7 @@ def ai_decision(user_input):
         ]
     )
 
-    return response["choices"][0]["message"]["content"].strip()
+    return response.choices[0].message.content.strip()
 
 # 🎯 AI Live Internet Access – Google Search
 def search_web(query):
