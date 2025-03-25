@@ -4,10 +4,10 @@ from pinecone import Pinecone, ServerlessSpec
 import requests
 from bs4 import BeautifulSoup
 
-# 🎯 OpenAI API Initialization
+# 🎯 OpenAI API Key
 client = openai.OpenAI(api_key=st.secrets["openai"]["api_key"])
 
-# 🎯 Pinecone Initialization (Fixed Memory Storage)
+# 🎯 Pinecone Initialization
 pc = Pinecone(api_key=st.secrets["pinecone"]["api_key"])
 INDEX_NAME = "aimemory"
 
@@ -22,24 +22,24 @@ if INDEX_NAME not in pc.list_indexes().names():
 
 index = pc.Index(INDEX_NAME)
 
-# 🎯 Get OpenAI Embedding (Fixed Memory Retrieval)
+# 🎯 Get OpenAI Embedding
 def get_embedding(text):
-    """Converts text into vector for Pinecone storage."""
+    """Convert text into a vector for Pinecone storage."""
     response = client.embeddings.create(input=[text], model="text-embedding-ada-002")
     return response.data[0].embedding  
 
 # 🎯 Store AI Knowledge (Fixed)
 def store_knowledge(user_input, response_text):
-    """Stores the conversation history in Pinecone memory."""
+    """Store user query + AI response in Pinecone memory."""
     vector = get_embedding(user_input)
-    index.upsert(vectors=[{"id": user_input, "values": vector, "metadata": {"content": response_text}}])
+    index.upsert(vectors=[{"id": user_input, "values": vector, "metadata": {"query": user_input, "response": response_text}}])
 
 # 🎯 Retrieve AI Memory (Fixed)
 def retrieve_knowledge(user_input):
-    """Retrieves the AI's memory from Pinecone."""
+    """Retrieve stored AI response from Pinecone memory."""
     vector = get_embedding(user_input)  
     result = index.query(vector=vector, top_k=1, include_metadata=True)
-    return result.matches[0].metadata["content"] if result.matches else None
+    return result.matches[0].metadata["response"] if result.matches else None
 
 # 🎯 AI Predicts Future Events
 def develop_opinion(topic):
@@ -53,9 +53,9 @@ def develop_opinion(topic):
     )
     return response.choices[0].message.content.strip()
 
-# 🎯 AI Internet Search (Google Scraper)
+# 🎯 AI Internet Search
 def search_web(query):
-    """Performs a web search and returns the first relevant result."""
+    """Searches the web and returns the first relevant result."""
     search_url = f"https://www.google.com/search?q={query}"
     headers = {"User-Agent": "Mozilla/5.0"}
     response = requests.get(search_url, headers=headers)
@@ -63,7 +63,7 @@ def search_web(query):
     search_results = soup.find_all("span")
     return search_results[0].text if search_results else "No search results found."
 
-# 🎯 Streamlit Chat UI (Fixed Chat Loop Issue)
+# 🎯 Streamlit Chat UI
 st.title("🤖 Lach’s Fully Autonomous AI")
 
 if "messages" not in st.session_state:
