@@ -2,9 +2,6 @@ import streamlit as st
 import openai
 import os
 from pinecone import Pinecone, ServerlessSpec
-import pyttsx3
-import speech_recognition as sr
-import cv2
 import requests
 from bs4 import BeautifulSoup
 
@@ -23,7 +20,7 @@ if INDEX_NAME not in pc.list_indexes().names():
         name=INDEX_NAME,
         dimension=1536,  # Adjust dimension based on your embedding model
         metric="euclidean",
-        spec=ServerlessSpec(cloud="aws", region="us-west-2")
+        spec=ServerlessSpec(cloud="aws", region="us-east-1")  # ✅ FIXED REGION
     )
 
 # 🔹 Connect to the existing index
