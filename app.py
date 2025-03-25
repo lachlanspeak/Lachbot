@@ -1,18 +1,30 @@
 import streamlit as st
 import openai
-import pinecone
+import os
+from pinecone import Pinecone, ServerlessSpec
 import pyttsx3
 import speech_recognition as sr
 import cv2
 import requests
 from bs4 import BeautifulSoup
 
-# 🎯 Initialize OpenAI API Key from Streamlit Secrets
+# 🎯 Load API Keys from Streamlit Secrets
 openai.api_key = st.secrets["openai"]["api_key"]
 
 # 🎯 Initialize Pinecone for AI Long-Term Memory
-pinecone.init(api_key=st.secrets["pinecone"]["api_key"], environment="us-west1-gcp")
-index = pinecone.Index("ai_memory")
+pc = Pinecone(api_key=st.secrets["pinecone"]["api_key"])
+
+# 🔹 Check if the index exists, otherwise create it
+if "ai_memory" not in pc.list_indexes().names():
+    pc.create_index(
+        name="ai_memory",
+        dimension=1536,  # Adjust dimension based on your embedding model
+        metric="euclidean",
+        spec=ServerlessSpec(cloud="aws", region="us-west-2")
+    )
+
+# 🔹 Get the Pinecone index
+index = pc.Index("ai_memory")
 
 # 🎯 AI’s Core Ethics and Decision Rules
 ethical_rules = {
@@ -129,17 +141,17 @@ def control_device(command):
     url = "http://smart-home-api.com/device"
     requests.post(url, json={"command": command})
 
-# 🎯 AI Live Internet Access – **Using OpenAI Instead of SerpAPI**
+# 🎯 AI Live Internet Access – Google Search
 def search_web(query):
-    """Uses OpenAI to fetch live web data instead of SerpAPI."""
-    response = openai.ChatCompletion.create(
-        model="gpt-4",
-        messages=[
-            {"role": "system", "content": "You can access live web data."},
-            {"role": "user", "content": f"Search the web for: {query}"}
-        ]
-    )
-    return response.choices[0].message.content.strip()
+    """Searches the web and returns the first result."""
+    search_url = f"https://www.google.com/search?q={query}"
+    headers = {"User-Agent": "Mozilla/5.0"}
+    response = requests.get(search_url, headers=headers)
+    
+    soup = BeautifulSoup(response.text, "html.parser")
+    search_results = soup.find_all("span")
+
+    return search_results[0].text if search_results else "No relevant search results found."
 
 # 🎯 User Input Handling
 user_input = st.chat_input("Type a message...")
