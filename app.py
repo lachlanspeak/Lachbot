@@ -37,7 +37,12 @@ if "messages" not in st.session_state:
 for message in st.session_state.messages:
     st.chat_message(message["role"]).write(message["content"])
 
-# ✅ Fix 1: Prevent KeyError by checking metadata
+# ✅ Fix: Prevent storing junk data
+def is_valid_input(text):
+    """Checks if input is valid for storing memory."""
+    return text.strip() and len(text.split()) > 1
+
+# ✅ Fix: Retrieve past knowledge correctly
 def retrieve_knowledge(topic):
     """Retrieves AI's memory from Pinecone safely."""
     vector = get_embedding(topic)
@@ -45,28 +50,23 @@ def retrieve_knowledge(topic):
 
     if result["matches"]:
         metadata = result["matches"][0].get("metadata", {})
-        return metadata.get("response", None)  # ✅ Check if "response" exists
+        response = metadata.get("response")
+        return response if response else None
 
-    return None  # No matching knowledge found
+    return None  # No matching memory found
 
-# ✅ Fix 2: Ensure knowledge is stored properly
+# ✅ Fix: Store knowledge properly
 def store_knowledge(topic, response):
-    """Stores knowledge into Pinecone memory with a valid embedding."""
-    vector = get_embedding(topic)
-    index.upsert(vectors=[{
-        "id": topic,
-        "values": vector,
-        "metadata": {"response": response}  # ✅ Ensure "response" is stored
-    }])
+    """Stores knowledge into Pinecone memory correctly."""
+    if is_valid_input(response):  # ✅ Prevent storing "Hello" or meaningless text
+        vector = get_embedding(topic)
+        index.upsert(vectors=[{
+            "id": topic,
+            "values": vector,
+            "metadata": {"response": response}
+        }])
 
-# ✅ Fix 3: Debugging Output if Needed
-def debug_knowledge(topic):
-    """Debugs what is stored in Pinecone."""
-    vector = get_embedding(topic)
-    result = index.query(vector=vector, top_k=1, include_metadata=True)
-    st.write(f"🔍 Debugging Pinecone Data: {result}")
-
-# ✅ Ensure OpenAI embedding works
+# ✅ Fix: Ensures OpenAI embedding works
 def get_embedding(text):
     """Generates an embedding for text using OpenAI."""
     response = openai.embeddings.create(
@@ -75,12 +75,12 @@ def get_embedding(text):
     )
     return response.data[0].embedding
 
-# 🎯 AI Decision Logic
+# ✅ Fix: More human-like AI decision logic
 def ai_decision(user_input):
-    """AI decides whether to comply or refuse a request."""
+    """AI generates intelligent responses based on context."""
     response = openai.chat.completions.create(
         model="gpt-4",
-        messages=[{"role": "user", "content": f"Analyze: {user_input}"}]
+        messages=[{"role": "user", "content": user_input}]
     )
     return response.choices[0].message.content.strip()
 
@@ -101,7 +101,5 @@ if user_input:
     st.chat_message("assistant").write(reply)
     st.session_state.messages.append({"role": "assistant", "content": reply})
 
-    # 🔍 Debug if issues persist
-    debug_knowledge(user_input)
 
 
