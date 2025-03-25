@@ -1,6 +1,6 @@
 import streamlit as st
 import openai
-import pinecone
+from pinecone import Pinecone, ServerlessSpec
 import pyttsx3
 import speech_recognition as sr
 import requests
@@ -14,14 +14,21 @@ PINECONE_ENV = st.secrets["pinecone"]["environment"]
 # 🎯 Initialize OpenAI API
 openai.api_key = OPENAI_API_KEY
 
-# 🎯 Initialize Pinecone Memory
-pinecone.init(api_key=PINECONE_API_KEY, environment=PINECONE_ENV)
-index_name = "ai-memory"
+# 🎯 Initialize Pinecone Memory (✅ FIXED)
+pc = Pinecone(api_key=PINECONE_API_KEY)
 
-if index_name not in pinecone.list_indexes():
-    pinecone.create_index(index_name, dimension=1536, metric="cosine")
+INDEX_NAME = "ai-memory"
 
-index = pinecone.Index(index_name)
+# ✅ Check if the index exists and create if needed
+if INDEX_NAME not in pc.list_indexes().names():
+    pc.create_index(
+        name=INDEX_NAME,
+        dimension=1536,  # GPT-4 embedding size
+        metric="cosine",
+        spec=ServerlessSpec(cloud="aws", region="us-east-1")  # ✅ MATCHES YOUR REGION
+    )
+
+index = pc.Index(INDEX_NAME)
 
 # 🎯 Streamlit UI
 st.title("🤖 Lach’s Fully Autonomous AI")
@@ -86,4 +93,5 @@ if user_input:
     # Store in session history
     st.session_state.messages.append({"role": "user", "content": user_input})
     st.session_state.messages.append({"role": "assistant", "content": reply})
+
 
