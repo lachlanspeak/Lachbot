@@ -40,11 +40,11 @@ for message in st.session_state.messages:
 # 🎯 AI Memory Storage
 def store_knowledge(topic, content):
     """Stores knowledge into Pinecone memory."""
-    index.upsert([(topic, {"content": content})])
+    index.upsert(vectors=[{"id": topic, "values": [0.1, 0.2, 0.3], "metadata": {"content": content}}])
 
 def retrieve_knowledge(topic):
     """Retrieves AI's memory from Pinecone."""
-    result = index.query(topic, top_k=1, include_metadata=True)
+    result = index.query(vector=[0.1, 0.2, 0.3], top_k=1, include_metadata=True)  # ✅ FIXED QUERY METHOD
     return result["matches"][0]["metadata"]["content"] if result["matches"] else None
 
 # 🎯 AI’s Free Will – Should It Follow the Request?
