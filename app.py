@@ -6,7 +6,6 @@ import speech_recognition as sr
 import cv2
 import requests
 from bs4 import BeautifulSoup
-from serpapi import GoogleSearch  # ✅ Fixed SerpAPI import
 
 # 🎯 Initialize OpenAI API Key from Streamlit Secrets
 openai.api_key = st.secrets["openai"]["api_key"]
@@ -130,24 +129,9 @@ def control_device(command):
     url = "http://smart-home-api.com/device"
     requests.post(url, json={"command": command})
 
-# 🎯 AI Live Internet Access – Google Search (SerpAPI)
+# 🎯 AI Live Internet Access – **Using OpenAI Instead of SerpAPI**
 def search_web(query):
-    """Searches the web and returns the first result."""
-    params = {
-        "q": query,
-        "api_key": st.secrets["serpapi"]["api_key"]
-    }
-    search = GoogleSearch(params)
-    results = search.get_dict()
-    
-    if "organic_results" in results:
-        return results["organic_results"][0]["snippet"]
-    else:
-        return "No relevant search results found."
-
-# 🎯 Alternative Web Search Using OpenAI
-def search_openai(query):
-    """Uses OpenAI instead of SerpAPI to fetch live web data."""
+    """Uses OpenAI to fetch live web data instead of SerpAPI."""
     response = openai.ChatCompletion.create(
         model="gpt-4",
         messages=[
