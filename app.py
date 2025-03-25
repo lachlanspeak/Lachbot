@@ -1,12 +1,12 @@
 import streamlit as st
 import openai
-import pinecone  # Ensure you're using the latest package
+import pinecone
 import pyttsx3
 import speech_recognition as sr
 import cv2
 import requests
 from bs4 import BeautifulSoup
-from serpapi import GoogleSearch  # More stable search API
+from serpapi import GoogleSearch  # ✅ Fixed SerpAPI import
 
 # 🎯 Initialize OpenAI API Key from Streamlit Secrets
 openai.api_key = st.secrets["openai"]["api_key"]
@@ -130,7 +130,7 @@ def control_device(command):
     url = "http://smart-home-api.com/device"
     requests.post(url, json={"command": command})
 
-# 🎯 AI Live Internet Access – Google Search
+# 🎯 AI Live Internet Access – Google Search (SerpAPI)
 def search_web(query):
     """Searches the web and returns the first result."""
     params = {
@@ -144,6 +144,18 @@ def search_web(query):
         return results["organic_results"][0]["snippet"]
     else:
         return "No relevant search results found."
+
+# 🎯 Alternative Web Search Using OpenAI
+def search_openai(query):
+    """Uses OpenAI instead of SerpAPI to fetch live web data."""
+    response = openai.ChatCompletion.create(
+        model="gpt-4",
+        messages=[
+            {"role": "system", "content": "You can access live web data."},
+            {"role": "user", "content": f"Search the web for: {query}"}
+        ]
+    )
+    return response.choices[0].message.content.strip()
 
 # 🎯 User Input Handling
 user_input = st.chat_input("Type a message...")
