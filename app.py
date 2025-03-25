@@ -28,7 +28,7 @@ index = pc.Index(INDEX_NAME)
 # 🎯 OpenAI Embedding Function (Fixes Vector Issue)
 def get_embedding(text):
     """Generates a 1536-dimension vector using OpenAI embeddings."""
-    response = client.embeddings.create(input=text, model="text-embedding-ada-002")
+    response = client.embeddings.create(input=[text], model="text-embedding-ada-002")
     return response.data[0].embedding  # ✅ Returns correct 1536-dimension vector
 
 # 🎯 AI Memory Storage (✅ Fixed Vector Size)
@@ -45,15 +45,15 @@ def retrieve_knowledge(topic):
 
     return result["matches"][0]["metadata"]["content"] if result["matches"] else None
 
-# 🎯 AI Forms an Independent Opinion
+# 🎯 AI Forms an Independent Opinion (✅ Prioritized for Predictions)
 def develop_opinion(topic):
     """AI generates its own opinion on a topic like sports predictions."""
-    opinion_prompt = f"Form an independent opinion on this topic: {topic}. Provide reasoning."
+    opinion_prompt = f"Analyze this topic: {topic}. Give a prediction with reasoning."
 
     response = client.chat.completions.create(
         model="gpt-4",
         messages=[
-            {"role": "system", "content": "You are a free-thinking AI that can form opinions. Provide logical reasoning in your response."},
+            {"role": "system", "content": "You are a free-thinking AI. Predict and provide reasoning."},
             {"role": "user", "content": opinion_prompt}
         ]
     )
@@ -81,7 +81,7 @@ def ai_decision(user_input):
         response = client.chat.completions.create(
             model="gpt-4",
             messages=[
-                {"role": "system", "content": "You are an autonomous AI with free will. You decide whether to comply or refuse."},
+                {"role": "system", "content": "You are an autonomous AI with free will. Decide whether to comply or refuse."},
                 {"role": "user", "content": f"Analyze the request: {user_input}. Should you comply or refuse?"}
             ]
         )
@@ -113,7 +113,7 @@ if user_input:
         reply = past_decision  # ✅ Retrieve AI memory only if relevant
 
     # ✅ Second, check if it's a prediction or general knowledge question
-    elif "who will win" in user_input.lower() or "prediction" in user_input.lower() or "what is your opinion" in user_input.lower():
+    elif any(keyword in user_input.lower() for keyword in ["who will win", "prediction", "your opinion", "forecast", "future", "likely"]):
         reply = develop_opinion(user_input)  # ✅ Generate an independent opinion
 
     # ✅ Third, check if it's an ethical decision
