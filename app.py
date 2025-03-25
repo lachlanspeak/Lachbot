@@ -1,6 +1,6 @@
 import streamlit as st
 import openai
-import pinecone
+import pinecone  # Ensure you're using the latest package
 import pyttsx3
 import speech_recognition as sr
 import cv2
