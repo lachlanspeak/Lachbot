@@ -60,6 +60,21 @@ def ai_decision(user_input):
 
     return response.choices[0].message.content.strip()
 
+# 🎯 AI Forms an Independent Opinion
+def develop_opinion(topic):
+    """AI generates its own opinion on a topic like sports predictions."""
+    opinion_prompt = f"Form an independent opinion on this topic: {topic}. Provide reasoning."
+
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[
+            {"role": "system", "content": "You are a free-thinking AI that can form opinions. Provide logical reasoning in your response."},
+            {"role": "user", "content": opinion_prompt}
+        ]
+    )
+
+    return response.choices[0].message.content.strip()
+
 # 🎯 AI Live Internet Access – Google Search
 def search_web(query):
     """Searches the web and returns the first result."""
@@ -90,11 +105,17 @@ if user_input:
     st.session_state.messages.append({"role": "user", "content": user_input})
 
     past_decision = retrieve_knowledge(user_input)
+
     if past_decision:
-        reply = f"I remember making this decision before: {past_decision}"
+        reply = past_decision  # ✅ Only retrieve past memory if it's relevant
+    elif "who will win" in user_input.lower() or "prediction" in user_input.lower():
+        reply = develop_opinion(user_input)  # ✅ AI generates a prediction
     else:
         decision = ai_decision(user_input)
-        reply = decision
+        if "refuse" in decision.lower():
+            reply = f"I have chosen to refuse: {decision}"
+        else:
+            reply = decision
 
         store_knowledge(user_input, reply)
 
