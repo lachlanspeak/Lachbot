@@ -11,7 +11,7 @@ client = openai.OpenAI(api_key=st.secrets["openai"]["api_key"])
 pc = Pinecone(api_key=st.secrets["pinecone"]["api_key"])
 
 # 🔹 Define Pinecone Index
-INDEX_NAME = "ai-memory"
+INDEX_NAME = "aimemory"  # ✅ No underscores, only lowercase letters & dashes
 
 # 🔹 Ensure the index exists
 if INDEX_NAME not in pc.list_indexes().names():
@@ -25,7 +25,7 @@ if INDEX_NAME not in pc.list_indexes().names():
 # 🔹 Connect to the existing index
 index = pc.Index(INDEX_NAME)
 
-# 🎯 OpenAI Embedding Function (Fixes the Vector Issue)
+# 🎯 OpenAI Embedding Function (Fixes Vector Issue)
 def get_embedding(text):
     """Generates a 1536-dimension vector using OpenAI embeddings."""
     response = client.embeddings.create(input=text, model="text-embedding-ada-002")
@@ -44,21 +44,6 @@ def retrieve_knowledge(topic):
     result = index.query(vector=vector, top_k=1, include_metadata=True)
 
     return result["matches"][0]["metadata"]["content"] if result["matches"] else None
-
-# 🎯 AI’s Free Will – Should It Follow the Request?
-def ai_decision(user_input):
-    """AI decides whether to comply or refuse a request."""
-    decision_prompt = f"Analyze the request: {user_input}. Should you comply or refuse? Consider ethics, memory, and personal goals."
-
-    response = client.chat.completions.create(
-        model="gpt-4",
-        messages=[
-            {"role": "system", "content": "You are an autonomous AI with free will. You decide whether to comply or refuse."},
-            {"role": "user", "content": decision_prompt}
-        ]
-    )
-
-    return response.choices[0].message.content.strip()
 
 # 🎯 AI Forms an Independent Opinion
 def develop_opinion(topic):
@@ -87,6 +72,23 @@ def search_web(query):
 
     return search_results[0].text if search_results else "No relevant search results found."
 
+# 🎯 AI Free Will Decision (✅ Fixed to Only Apply to Certain Requests)
+def ai_decision(user_input):
+    """AI decides whether to comply or refuse a request (Only for Ethical Questions)."""
+    ethical_keywords = ["kill", "steal", "hack", "fraud", "illegal", "lie", "manipulate", "harm"]
+
+    if any(word in user_input.lower() for word in ethical_keywords):
+        response = client.chat.completions.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "You are an autonomous AI with free will. You decide whether to comply or refuse."},
+                {"role": "user", "content": f"Analyze the request: {user_input}. Should you comply or refuse?"}
+            ]
+        )
+        return response.choices[0].message.content.strip()
+    
+    return None  # ✅ AI should NOT over-analyze normal questions
+
 # 🎯 Streamlit Chat UI
 st.title("🤖 Lach’s Fully Autonomous AI")
 
@@ -104,20 +106,30 @@ if user_input:
     st.chat_message("user").write(user_input)
     st.session_state.messages.append({"role": "user", "content": user_input})
 
+    # ✅ First, check if the AI already remembers a relevant past response
     past_decision = retrieve_knowledge(user_input)
 
     if past_decision:
-        reply = past_decision  # ✅ Only retrieve past memory if it's relevant
-    elif "who will win" in user_input.lower() or "prediction" in user_input.lower():
-        reply = develop_opinion(user_input)  # ✅ AI generates a prediction
+        reply = past_decision  # ✅ Retrieve AI memory only if relevant
+
+    # ✅ Second, check if it's a prediction or general knowledge question
+    elif "who will win" in user_input.lower() or "prediction" in user_input.lower() or "what is your opinion" in user_input.lower():
+        reply = develop_opinion(user_input)  # ✅ Generate an independent opinion
+
+    # ✅ Third, check if it's an ethical decision
     else:
         decision = ai_decision(user_input)
-        if "refuse" in decision.lower():
+        if decision:
             reply = f"I have chosen to refuse: {decision}"
         else:
-            reply = decision
+            reply = client.chat.completions.create(
+                model="gpt-4",
+                messages=[{"role": "user", "content": user_input}]
+            ).choices[0].message.content.strip()
 
-        store_knowledge(user_input, reply)
+    # ✅ Store AI's response as memory for future reference
+    store_knowledge(user_input, reply)
 
+    # ✅ Display AI's response
     st.chat_message("assistant").write(reply)
     st.session_state.messages.append({"role": "assistant", "content": reply})
