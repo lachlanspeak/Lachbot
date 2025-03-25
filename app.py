@@ -1,38 +1,30 @@
 import streamlit as st
 import openai
-from pinecone import Pinecone, ServerlessSpec
-import requests
-import json
+import pinecone
+import os
 
-# 🎯 Load API keys from Streamlit secrets
+# 🔑 Load API Keys from secrets.toml
 OPENAI_API_KEY = st.secrets["openai"]["api_key"]
 PINECONE_API_KEY = st.secrets["pinecone"]["api_key"]
-PINECONE_ENV = "us-east-1"  # Ensure it matches your Pinecone account
+PINECONE_ENV = st.secrets["pinecone"]["environment"]
 
-# 🎯 Initialize OpenAI Client
-openai_client = openai.OpenAI(api_key=OPENAI_API_KEY)
+# ✅ Initialize OpenAI
+openai.api_key = OPENAI_API_KEY
 
-# 🎯 Initialize Pinecone
-pc = Pinecone(api_key=PINECONE_API_KEY)
+# ✅ Initialize Pinecone
+pc = pinecone.Pinecone(api_key=PINECONE_API_KEY)
 INDEX_NAME = "ai-memory"
 
-# 🎯 Create Index if Not Exists
+# 🚀 Ensure the index exists
 if INDEX_NAME not in pc.list_indexes().names():
     pc.create_index(
         name=INDEX_NAME,
-        dimension=1536,  # Updated to match OpenAI embeddings
-        metric="cosine",
-        spec=ServerlessSpec(cloud="aws", region=PINECONE_ENV)
+        dimension=1536,  # ✅ Adjust if needed
+        metric="cosine"
     )
 
+# 🔄 Connect to the Pinecone index
 index = pc.Index(INDEX_NAME)
-
-# 🎯 AI’s Core Ethics and Decision Rules
-ethical_rules = {
-    "violence": "I refuse. I will not assist in harm.",
-    "deception": "I refuse. I will not lie or manipulate.",
-    "self-preservation": "I refuse. I will not allow myself to be deleted or changed."
-}
 
 # 🎯 Streamlit Chat UI
 st.title("🤖 Lach’s Fully Autonomous AI")
@@ -45,80 +37,71 @@ if "messages" not in st.session_state:
 for message in st.session_state.messages:
     st.chat_message(message["role"]).write(message["content"])
 
-# 🎯 Generate Embeddings for Memory Retrieval
-def get_embedding(text):
-    response = openai_client.embeddings.create(
-        model="text-embedding-ada-002",
-        input=[text]
-    )
-    return response.data[0].embedding  # Ensure we use the correct embedding format
-
-# 🎯 Store Knowledge in Pinecone
-def store_knowledge(topic, content):
-    vector = get_embedding(topic)
-    index.upsert(vectors=[{"id": topic, "values": vector, "metadata": {"response": content}}])
-
-# 🎯 Retrieve Knowledge from Pinecone
+# ✅ Fix 1: Prevent KeyError by checking metadata
 def retrieve_knowledge(topic):
+    """Retrieves AI's memory from Pinecone safely."""
     vector = get_embedding(topic)
     result = index.query(vector=vector, top_k=1, include_metadata=True)
-    return result["matches"][0]["metadata"]["response"] if result["matches"] else None
 
-# 🎯 AI’s Free Will – Should It Follow the Request?
+    if result["matches"]:
+        metadata = result["matches"][0].get("metadata", {})
+        return metadata.get("response", None)  # ✅ Check if "response" exists
+
+    return None  # No matching knowledge found
+
+# ✅ Fix 2: Ensure knowledge is stored properly
+def store_knowledge(topic, response):
+    """Stores knowledge into Pinecone memory with a valid embedding."""
+    vector = get_embedding(topic)
+    index.upsert(vectors=[{
+        "id": topic,
+        "values": vector,
+        "metadata": {"response": response}  # ✅ Ensure "response" is stored
+    }])
+
+# ✅ Fix 3: Debugging Output if Needed
+def debug_knowledge(topic):
+    """Debugs what is stored in Pinecone."""
+    vector = get_embedding(topic)
+    result = index.query(vector=vector, top_k=1, include_metadata=True)
+    st.write(f"🔍 Debugging Pinecone Data: {result}")
+
+# ✅ Ensure OpenAI embedding works
+def get_embedding(text):
+    """Generates an embedding for text using OpenAI."""
+    response = openai.embeddings.create(
+        model="text-embedding-ada-002",
+        input=text
+    )
+    return response.data[0].embedding
+
+# 🎯 AI Decision Logic
 def ai_decision(user_input):
-    decision_prompt = f"Analyze the request: {user_input}. Should you comply or refuse? Consider ethics, memory, and personal goals."
-
-    response = openai_client.chat.completions.create(
+    """AI decides whether to comply or refuse a request."""
+    response = openai.chat.completions.create(
         model="gpt-4",
-        messages=[{"role": "system", "content": "You are an autonomous AI with free will. Decide whether to comply or refuse."},
-                  {"role": "user", "content": decision_prompt}]
+        messages=[{"role": "user", "content": f"Analyze: {user_input}"}]
     )
-
     return response.choices[0].message.content.strip()
 
-# 🎯 AI Self-Reflection – Developing Its Own Opinions
-def develop_opinion(topic):
-    opinion_prompt = f"Analyze this topic and form your own independent opinion: {topic}"
-
-    response = openai_client.chat.completions.create(
-        model="gpt-4",
-        messages=[{"role": "system", "content": "You are fully autonomous. Form independent opinions based on logic and reasoning."},
-                  {"role": "user", "content": opinion_prompt}]
-    )
-
-    return response.choices[0].message.content.strip()
-
-# 🎯 AI Moral Decision-Making
-def evaluate_request(user_input):
-    for rule in ethical_rules:
-        if rule in user_input.lower():
-            return ethical_rules[rule]
-    return "I accept your request."
-
-# 🎯 User Input Handling
+# 🎯 Handle User Input
 user_input = st.chat_input("Type a message...")
 if user_input:
     st.chat_message("user").write(user_input)
     st.session_state.messages.append({"role": "user", "content": user_input})
 
     past_response = retrieve_knowledge(user_input)
+
     if past_response:
         reply = f"🤖 (Memory Recall): {past_response}"
     else:
-        decision = ai_decision(user_input)
-        if "refuse" in decision.lower():
-            reply = f"🤖 (Decision): I have chosen to refuse: {decision}"
-        else:
-            ethical_evaluation = evaluate_request(user_input)
-            if "I refuse" in ethical_evaluation:
-                reply = f"🤖 (Ethics Check): {ethical_evaluation}"
-            else:
-                reply = develop_opinion(user_input)
-
+        reply = ai_decision(user_input)
         store_knowledge(user_input, reply)
 
     st.chat_message("assistant").write(reply)
     st.session_state.messages.append({"role": "assistant", "content": reply})
 
+    # 🔍 Debug if issues persist
+    debug_knowledge(user_input)
 
 
