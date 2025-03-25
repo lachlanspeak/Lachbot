@@ -5,7 +5,7 @@ from openai import OpenAI
 api_key = st.secrets["openai"]["api_key"]
 client = OpenAI(api_key=api_key)
 
-st.title("🤖 My AI Chatbot")
+st.title("Lach's Bot")
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
